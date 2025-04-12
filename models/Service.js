@@ -5,7 +5,8 @@ const serviceSchema = new Schema({
   startTime: { type: Date, required: true },
   endTime: { type: Date },
   inService: { type: Boolean, default: true },
-  day: { type: String } // On peut stocker la date du jour par exemple en format locale
+  day: { type: String }, // Format par exemple "15/04/2025"
+  totalTime: { type: Number, default: 0 } // Durée cumulée en millisecondes
 });
 
 module.exports = model('Service', serviceSchema);
