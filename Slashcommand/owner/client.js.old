@@ -1,0 +1,142 @@
+const { EmbedBuilder, ApplicationCommandOptionType, PermissionsBitField } = require("discord.js");
+const config = require("../../config.json");
+
+module.exports.run = async (client, inter) => {
+    try {
+        await inter.deferReply({ ephemeral: true });
+
+        const allowedUsers = ["1333459195554697266", "1333439649779290135"];
+        if (!allowedUsers.includes(inter.user.id)) {
+            return inter.editReply({ content: "❌ Vous n'avez pas la permission d'exécuter cette commande.", ephemeral: true });
+        }
+
+        const target = inter.options.getUser('utilisateur');
+        const niveau = inter.options.getString('niveau');
+        const action = inter.options.getString('action'); // ajouter ou retirer
+
+        if (!target) {
+            return inter.editReply({ content: '⚠️ Veuillez mentionner un utilisateur.', ephemeral: true });
+        }
+
+        // Récupérer l'utilisateur dans le serveur
+        const member = await inter.guild.members.fetch(target.id);
+        if (!member) {
+            return inter.editReply({ content: '⚠️ Utilisateur introuvable sur le serveur.', ephemeral: true });
+        }
+        // Définition des rôles disponibles
+        const roles = {
+            "vip": "1333486430655352883",
+            "elite": "1333486458513915965",
+            "supreme": "1333486471725842544"
+        };
+
+        if (!roles[niveau.toLowerCase()]) {
+            return inter.editReply({ content: "⚠️ Niveau invalide. Utilisez `vip`, `elite` ou `supreme`.", ephemeral: true });
+        }
+
+        const role = inter.guild.roles.cache.get(roles[niveau.toLowerCase()]);
+        if (!role) {
+            return inter.editReply({ content: "⚠️ Le rôle correspondant n'a pas été trouvé.", ephemeral: true });
+        }
+
+        let embed = new EmbedBuilder()
+            .setColor("#0099ff")
+            .setTimestamp();
+
+        if (action === "ajouter") {
+            if (member.roles.cache.has(role.id)) {
+                return inter.editReply({ content: `⚠️ ${target} a déjà le rôle **${niveau}**.`, ephemeral: true });
+            }
+            await member.roles.add(role);
+            embed.setTitle("🔹 Rôle ajouté")
+                .setDescription(`Le rôle **${niveau}** a été attribué à ${target}.`)
+                .setColor(config.color)
+                .setThumbnail("https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.gif");
+
+            // Envoi du message privé à l'utilisateur
+            const expirationDate = new Date();
+            expirationDate.setMonth(expirationDate.getMonth() + 1);
+
+            await target.send({
+                embeds: [
+                    new EmbedBuilder()
+                        .setTitle("🎉 Félicitations !")
+                        .setThumbnail("https://fonts.gstatic.com/s/e/notoemoji/latest/1f38a/512.gif")
+                        .setDescription(`Vous venez de recevoir le grade **${niveau}** ! 🚀\n\nVotre abonnement sera actif jusqu'à : **${expirationDate.toLocaleDateString()}**`)
+                        .setColor(config.color)
+                        .setFooter({ text: `${inter.guild.name} • Merci pour votre soutien !`, iconURL: client.user.displayAvatarURL() })
+                ]
+            }).catch(() => console.log(`Impossible d'envoyer un MP à ${target.tag}`));
+
+
+            const embedLog = new EmbedBuilder()
+                .setTitle("📍  Abonnement défini !")
+                .setDescription(`L'abonnement' **${niveau}** a été attribué à ${target} par ${inter.user}.`)
+                .setColor(config.color)
+                .setTimestamp();
+            
+
+            const channel = inter.guild.channels.cache.get(config.logsChannelId);
+            if (channel) {
+                channel.send({ embeds: [embedLog] });
+            }
+
+        } else if (action === "retirer") {
+            if (!member.roles.cache.has(role.id)) {
+                return inter.editReply({ content: `⚠️ ${target} ne possède pas le rôle **${niveau}**.`, ephemeral: true });
+            }
+            await member.roles.remove(role);
+            embed.setTitle("🔻 Rôle retiré")
+                .setDescription(`Le rôle **${niveau}** a été retiré à ${target}.`)
+                .setColor(config.color)
+                .setThumbnail("https://fonts.gstatic.com/s/e/notoemoji/latest/1f634/512.gif");
+        } else {
+            return inter.editReply({ content: "⚠️ Action invalide. Utilisez `ajouter` ou `retirer`.", ephemeral: true });
+        }
+
+        inter.editReply({ embeds: [embed] });
+
+    } catch (error) {
+        console.error(error);
+        inter.editReply({ content: `❌ Une erreur est survenue : ${error.message}`, ephemeral: true });
+    }
+};
+
+module.exports.help = {
+    name: "abonnement",
+    data: {
+        name: "abonnement",
+        description: "Gérer les niveaux d'abonnement des utilisateurs",
+        options: [
+            {
+                name: "action",
+                description: "Ajouter ou retirer un abonnement",
+                type: ApplicationCommandOptionType.String,
+                required: true,
+                choices: [
+                    { name: "ajouter", value: "ajouter" },
+                    { name: "retirer", value: "retirer" }
+                ]
+            },
+            {
+                name: "utilisateur",
+                description: "L'utilisateur concerné",
+                type: ApplicationCommandOptionType.User,
+                required: true
+            },
+            {
+                name: "niveau",
+                description: "Le niveau d'abonnement (vip, elite, supreme)",
+                type: ApplicationCommandOptionType.String,
+                required: true,
+                choices: [
+                    { name: "VIP", value: "vip" },
+                    { name: "Élite", value: "elite" },
+                    { name: "Suprême", value: "supreme" }
+                ]
+            }
+        ]
+    },
+    permissions: ['MANAGE_ROLES', 'Gérer les rôles'],
+    permbot: ['MANAGE_ROLES', 'Gérer les rôles'],
+};
